@@ -8,6 +8,7 @@
 
 #include <limits.h>
 #include <mntent.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
@@ -19,10 +20,12 @@
 #include <limits>
 #include <regex>  // NOLINT: no RE2; ghost limits itself to absl
 #include <thread>
+#include <unistd.h>
 #include <unordered_map>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "lib/logging.h"
 
 // The open source Google benchmarks library includes its own verbose flag (`v`)
 // and it does not use absl to parse this flag. Thus, to avoid a symbol
@@ -189,7 +192,7 @@ void Ghost::InitCore() {
   static_assert((MAX_CPUS & (MAX_CPUS - 1)) == 0);
 }
 
-int Ghost::SchedTaskEnterGhost(int64_t pid, int dir_fd) {
+int Ghost::SchedTaskEnterGhost(int64_t pid, int dir_fd, long pid_ns_inum) {
   if (dir_fd == -1) {
     dir_fd = GhostHelper()->GetGlobalEnclaveDirFd();
   }
@@ -199,9 +202,11 @@ int Ghost::SchedTaskEnterGhost(int64_t pid, int dir_fd) {
   if (tasks_fd < 0) {
     return -1;
   }
-  std::string pid_s = std::to_string(pid);
+
+  std::string pid_and_ns = absl::StrFormat("%lld %ld", pid, pid_ns_inum);
   int ret = 0;
-  if (write(tasks_fd, pid_s.c_str(), pid_s.length()) != pid_s.length()) {
+  if (write(tasks_fd, pid_and_ns.c_str(), pid_and_ns.length()) !=
+      pid_and_ns.length()) {
     ret = -1;
   }
   int old_errno = errno;
@@ -213,8 +218,8 @@ int Ghost::SchedTaskEnterGhost(int64_t pid, int dir_fd) {
   return ret;
 }
 
-int Ghost::SchedTaskEnterGhost(const Gtid& gtid, int dir_fd) {
-  return SchedTaskEnterGhost(gtid.id(), dir_fd);
+int Ghost::SchedTaskEnterGhost(const Gtid &gtid, int dir_fd, long pid_ns_inum) {
+  return SchedTaskEnterGhost(gtid.id(), dir_fd, pid_ns_inum);
 }
 
 int Ghost::SchedAgentEnterGhost(int ctl_fd, const Cpu& cpu, int queue_fd) {

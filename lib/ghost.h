@@ -25,6 +25,9 @@
 #include "lib/logging.h"
 #include "lib/topology.h"
 
+#define GHOST_USE_CURRENT_PID_NS 0 /* use current PID namespace */
+#define GHOST_USE_ROOT_PID_NS -1   /* use root PID namespace */
+
 ABSL_DECLARE_FLAG(int32_t, verbose);
 
 namespace ghost {
@@ -374,9 +377,15 @@ class Ghost {
 
   // Moves the specified thread to the ghOSt scheduling class, using the enclave
   // dir_fd.  `pid` may be a pid_t or a raw gtid. If dir_fd is -1, this will use
-  // the enclave dir_fd previously set with SetGlobalEnclaveFds().
-  virtual int SchedTaskEnterGhost(int64_t pid, int dir_fd);
-  virtual int SchedTaskEnterGhost(const Gtid& gtid, int dir_fd);
+  // the enclave dir_fd previously set with SetGlobalEnclaveFds(). An additional
+  // `pid_ns_inum` parameter can be passed to specify the namespace for PID
+  // lookups, which is GHOST_USE_CURRENT_PID_NS (0) by default.
+  virtual int
+  SchedTaskEnterGhost(int64_t pid, int dir_fd,
+                      long namespace_inum = GHOST_USE_CURRENT_PID_NS);
+  virtual int
+  SchedTaskEnterGhost(const Gtid &gtid, int dir_fd,
+                      long namespace_inum = GHOST_USE_CURRENT_PID_NS);
   // Makes calling thread the ghost agent on `cpu`.  Note that the calling
   // thread must have the `CAP_SYS_NICE` capability to make itself an agent.
   virtual int SchedAgentEnterGhost(int ctl_fd, const Cpu& cpu, int queue_fd);
